@@ -30,3 +30,6 @@ A na jednoduchy objekt key:value
 pak uz staci predchazejici vysledek jen aplikovat
 
 $merge($)
+
+
+Nested arrays referencing:  https://stackoverflow.com/questions/74552696/jsonata-creating-array-from-nested-array-of-objects?rq=1
