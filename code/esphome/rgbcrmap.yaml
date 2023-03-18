@@ -1,3 +1,14 @@
+#Dirty code
+#ToDo:
+  # change http update intervals to millis in lambdas 
+  # look at:
+        # - addressable_lambda:
+        #   name: "VOLBY @jirka1213 New Wheel"
+  # Add some kind of inputs to vote parameters
+  # Hardcoded at the end of this code now
+
+
+
 esphome:
   name: rgbcrmap
   includes:
@@ -14,7 +25,10 @@ esphome:
   on_boot: 
     priority: -100
     then:
+      - delay: 5s
       - script.execute: getTemperaturesData
+      - script.execute: getVoteData
+
 
 esp32:
   board: esp32doit-devkit-v1
@@ -51,19 +65,25 @@ wifi:
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Rgbcrmap Fallback Hotspot"
-    password: "BfPrNYK8vZ83"
+  #   password: "BfPrNYK8vZ83"
 
 captive_portal:
+
+switch:
+  - platform: restart
+    name: "Restart rgbcrmap"
+  - platform: safe_mode
+    name: "Restart (Safe Mode) rgbcrmap"
 
 globals:
   - id: tempData
     type: String
     restore_value: False
     initial_value: '"{}"'
-  - id: vote1Data
+  - id: voteData
     type: String
     restore_value: False
-
+    initial_value: '"{}"'
 
 light:
   - platform: neopixelbus
@@ -119,7 +139,7 @@ light:
             for (JsonObject item : doc.as<JsonArray>()) {
               int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
               ledIndex -= 1;
-              double h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
               int color = map(h, -15, 40, 170, 0);
               //it[ledIndex] = Wheel(color);
               it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
@@ -142,7 +162,8 @@ light:
             for (JsonObject item : doc.as<JsonArray>()) {
               int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
               ledIndex -= 1;
-              double h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              h = h*1.0;
               int color = map(h, -15, 40, 170, 0);
               it[ledIndex] = Wheel(color);
               //it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
@@ -156,7 +177,8 @@ light:
             //id(getTemperaturesData).execute();
             double maxTemp = -99;
             double minTemp =  99;
-            DynamicJsonDocument doc(6144);
+            DynamicJsonDocument doc(4096);
+            //DynamicJsonDocument doc(6144);
             Serial.println(id(tempData));
             DeserializationError error = deserializeJson(doc, id(tempData));
             if (error) {
@@ -166,7 +188,7 @@ light:
             }
             //Zjisti min a max teplotu pro mapping
             for (JsonObject item : doc.as<JsonArray>()) {
-              double h = item["h"];
+              float h = item["h"];
               if (h < minTemp) minTemp = h;
               if (h > maxTemp) maxTemp = h;
             }
@@ -174,7 +196,7 @@ light:
             for (JsonObject item : doc.as<JsonArray>()) {
               int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
               ledIndex -= 1;
-              double h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
               int color = map(h, minTemp, maxTemp, 170, 0);
               //it[ledIndex] = Wheel(color);
               it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
@@ -198,7 +220,7 @@ light:
             }
             //Zjisti min a max teplotu pro mapping
             for (JsonObject item : doc.as<JsonArray>()) {
-              double h = item["h"];
+              float h = item["h"];
               if (h < minTemp) minTemp = h;
               if (h > maxTemp) maxTemp = h;
             }
@@ -206,7 +228,7 @@ light:
             for (JsonObject item : doc.as<JsonArray>()) {
               int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
               ledIndex -= 1;
-              double h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
               int color = map(h, minTemp, maxTemp, 170, 0);
               it[ledIndex] = Wheel(color);
               //it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
@@ -310,12 +332,12 @@ light:
       #       it[76] = Color::random_color(); //Praha
       #       id(neo).turn_on().set_brightness(0.5).perform();
       - addressable_lambda:
-          name: "5°C rozdíl na celou mapu New Wheel"
+          name: "5Â°C rozdÃ­l na celou mapu New Wheel"
           update_interval: 50ms
           lambda: |-
-            int range = 5; //kolik °c rozdílu na celou mapu
-            int mint = -15; //minimální teplota, odpovídá modré barvì
-            int maxt = 40; //maximální teplota, odpovídí èervené barvì
+            int range = 5; //kolik Â°c rozdÃ­lu na celou mapu
+            int mint = -15; //minimÃ¡lnÃ­ teplota, odpovÃ­dÃ¡ modrÃ© barvÄ›
+            int maxt = 40; //maximÃ¡lnÃ­ teplota, odpovÃ­dÃ­ ÄervenÃ© barvÄ›
             static float h = mint;
             static int direction = 1;
             // To reset static when stopping and starting the effect
@@ -337,7 +359,7 @@ light:
             for (int i = it.size() - 1; i > 0; i--) {
               it[i] = it[i - 1].get();
             }
-            int color = map(h, mint, maxt, 170, 0); // -15 .. 40°C
+            int color = map(h, mint, maxt, 170, 0); // -15 .. 40Â°C
             h += direction * range/float(it.size()); //
             //ESP_LOGD("custom", "h: %.2f ", h);
             if (h>=maxt & direction){
@@ -349,12 +371,12 @@ light:
             it[0] = Wheel(color);
 
       - addressable_lambda:
-          name: "5°C rozdíl na celou mapu Adafruit Wheel"
+          name: "5Â°C rozdÃ­l na celou mapu Adafruit Wheel"
           update_interval: 50ms
           lambda: |-
-            int range = 5; //kolik °c rozdílu na celou mapu
-            int mint = -15; //minimální teplota, odpovídá modré barvì
-            int maxt = 40; //maximální teplota, odpovídí èervené barvì
+            int range = 5; //kolik Â°c rozdÃ­lu na celou mapu
+            int mint = -15; //minimÃ¡lnÃ­ teplota, odpovÃ­dÃ¡ modrÃ© barvÄ›
+            int maxt = 40; //maximÃ¡lnÃ­ teplota, odpovÃ­dÃ­ ÄervenÃ© barvÄ›
             static float h = mint;
             static int direction = 1;
             // To reset static when stopping and starting the effect
@@ -376,7 +398,7 @@ light:
             for (int i = it.size() - 1; i > 0; i--) {
               it[i] = it[i - 1].get();
             }
-            int color = map(h, mint, maxt, 170, 0); // -15 .. 40°C
+            int color = map(h, mint, maxt, 170, 0); // -15 .. 40Â°C
             h += direction * range/float(it.size()); //
             //ESP_LOGD("custom", "h: %.2f ", h);
             if (h>=maxt & direction){
@@ -386,6 +408,52 @@ light:
               direction = 1;
             }
             it[0] = WheelAda(color);
+      - addressable_lambda:
+          name: "VOLBY @jirka1213 New Wheel"
+          update_interval: 5s
+          lambda: |-
+            if (initial_run) {
+              it.all() = Color::BLACK;
+              id(getVoteData).execute(); //try prepare data on Node-RED (buffered mode, see comments on node-RED flow)
+              // optionally do a return so nothing happens until the next update_interval
+              // return;
+            }
+            static int last_update;
+            int update_time = 50; //how quickly to update in seconds
+            if((last_update + (update_time * 1000)) < millis()){
+              last_update = millis();
+              id(getVoteData).execute(); // (read previous data and prepare data for the next read(buffered mode))
+            }
+            double maxTemp = -99;
+            double minTemp =  99;
+            DynamicJsonDocument doc(6144); // size calculator: https://arduinojson.org/v6/assistant/
+            Serial.println(id(voteData));
+            DeserializationError error = deserializeJson(doc, id(voteData));
+            if (error) {
+              Serial.print("deserializeJson() failed: ");
+              Serial.println(error.c_str());
+              return;
+            }
+            //Zjisti min a max teplotu pro mapping
+            for (JsonObject item : doc.as<JsonArray>()) {
+              float h = item["h"];
+              if (h < minTemp) minTemp = h;
+              if (h > maxTemp) maxTemp = h;
+            }
+
+            for (JsonObject item : doc.as<JsonArray>()) {
+              int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
+              ledIndex -= 1;
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              int color = map(h, minTemp, maxTemp, 0, 170);
+              if (h == -99) {  //nejsou k dispozici realna data, nastavim flag pro znovunacteni po skonceni cyklu, nebo zatim proste zobrazim mapu fialovou
+           
+                color = 218;
+              }
+              it[ledIndex] = Wheel(color);
+              //it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
+              serialPrintf("okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+            }
 
 
 json:
@@ -395,14 +463,14 @@ http_request:
   useragent: esphome/rgbcrmap
   timeout: 15s
 
-# async_tcp:
+async_tcp:
 
 # https://arduinojson.org/v6/assistant/#/step1
 time:
   - platform: sntp
     on_time:
       - seconds: 0
-        minutes: /10
+        minutes: /5
         then:
           - script.execute: getTemperaturesData
 
@@ -414,7 +482,7 @@ script:
           level: info
           format: "HTTP Request get Data"
       - http_request.get:
-          url: "https://cdn.tmep.cz/app/export/okresy-cr-teplota.json"
+          url: "http://cdn.tmep.cz/app/export/okresy-cr-teplota.json"
           headers:
             Content-Type: application/json
           verify_ssl: false
@@ -434,24 +502,16 @@ script:
                   - lambda: |- 
                       //String tempData;
                       id(tempData) = id(http_request_data).get_string();
-
-
-  - id: getVoteData1
+  - id: getVoteData
     mode: queued
     then:
       - logger.log:
           level: info
           format: "HTTP Request get Data"
       - http_request.get:
-          # url: "https://www.volby.cz/pls/prez2023nss/vysledky_kraj?kolo=1&nuts=CZ041"
-          # url: "https://esphome.io"
-          url: "https://www.volby.cz/pls/prez2023nss/vysledky"
+          url: "https://192.168.199.99:1880/endpoint/volby?buff=true&typ=prezident&kolo=1&rok=2013"   #rok 2013,2018,2023...  URL params - look at Node-RED flow
           headers:
-            User-Agent: PostmanRuntime/7.29.2
-            Accept: "*/*"
-            # Accept-Encoding: gzip, deflate, br
-            Connection: keep-alive
-            # Content-Type: application/xml
+            Content-Type: application/json
           verify_ssl: false
           on_response:
             - if:
@@ -461,12 +521,11 @@ script:
                 then:
                   - logger.log:
                       level: info
-                      tag: "getVoteData1"
+                      tag: "getTemperaturedata"
                       format: "Response status: %d, Duration: %u ms"
                       args:
                         - status_code
                         - duration_ms  
                   - lambda: |- 
                       //String tempData;
-                      id(vote1Data) = id(http_request_data).get_string();    
-                      //Serial.println(id(vote1Data).c_str());            
+                      id(voteData) = id(http_request_data).get_string();
