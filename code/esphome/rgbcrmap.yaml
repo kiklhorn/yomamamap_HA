@@ -84,6 +84,35 @@ globals:
     type: String
     restore_value: False
     initial_value: '"{}"'
+  - id: my_global
+    type: float
+    restore_value: no
+    initial_value: '0' 
+
+number:
+  - platform: template
+    id: my_number
+    name: My Number
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            id(my_global) = float(x);
+  - platform: template
+    id: my_number1
+    name: My Number1
+    min_value: 0
+    max_value: 100
+    step: 1
+    mode: BOX
+    optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            id(my_global) = float(x);
 
 light:
   - platform: neopixelbus
@@ -419,7 +448,7 @@ light:
               // return;
             }
             static int last_update;
-            int update_time = 50; //how quickly to update in seconds
+            int update_time = 70; //how quickly to update in seconds
             if((last_update + (update_time * 1000)) < millis()){
               last_update = millis();
               id(getVoteData).execute(); // (read previous data and prepare data for the next read(buffered mode))
