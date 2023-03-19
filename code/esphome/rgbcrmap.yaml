@@ -19,12 +19,12 @@ esphome:
     # - libs/xml2json/rapidjson
     # - libs/xml2json/xml2json.hpp
 
-  # on_boot: 
-  #   priority: -100
-  #   then:
-  #     - delay: 5s
-  #     - script.execute: getTemperaturesData
-  #     - script.execute: getVoteData
+  on_boot: 
+    priority: -100
+    then:
+      - delay: 5s
+      - script.execute: getTemperaturesData
+      - script.execute: getVoteData
 
 
 esp32:
@@ -86,8 +86,6 @@ button:
       then:
         - script.execute: getVoteData
         
-            
-
 switch:
   - platform: template
     name: "Teploty alternativní barvy:"
@@ -239,7 +237,7 @@ light:
           reverse: false
       - addressable_lambda:
           name: "Teploty TMEP [-15..+40°C]" #@tvoje___mama
-          update_interval: 5s
+          update_interval: 1s
           lambda: |-
             if (initial_run) {
               it.all() = Color::BLACK;
@@ -270,14 +268,14 @@ light:
               // nasledujici radek odkomentuj pro debug
               //serialPrintf("okres: %d, teplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",ledIndex,h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
               if (zobrazlog) {
-                ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              //  ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
               }
             }
             zobrazlog = false;
             //id(neo).turn_on().set_brightness(0.99).perform();
       - addressable_lambda:
           name: "Teploty TMEP [min..max]" # @jirka1213
-          update_interval: 5s
+          update_interval: 1s
           lambda: |-
             if (initial_run) {
               it.all() = Color::BLACK;
@@ -321,11 +319,10 @@ light:
               it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
               //serialPrintf("okres: %d, teplota: %f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",ledIndex,h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
               if (zobrazlog) {
-                ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+               // ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
               }
               if (zobrazlog && ledIndex >= 76) {
                 ESP_LOGI("teploty","min: %.2f°C okres: %s, max: %.2f°C okres: %s", minTemp, ledNames[minIndex].c_str(), maxTemp, ledNames[maxIndex].c_str());
-                //ESP_LOGI("teploty","min: %.2f°C, max: %.2f°C, %d", minTemp, maxTemp, ledIndex);
               }
             }
             zobrazlog = false;
@@ -479,7 +476,7 @@ light:
               it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
               //it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
               // nasledujici radek odkomentovat pro debug
-              //serialPrintf("okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              serialPrintf("okres: %s, \t\tkandidat: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
             }
 
 
@@ -487,17 +484,17 @@ json:
 
 http_request:
   id: http_request_data
-  useragent: MapaTvojiMamyESPHome/0.9
-  timeout: 4s
+  useragent: esphome/rgbcrmap
+  timeout: 14s
 
 async_tcp:
 
-# https://arduinojson.org/v6/assistant/#/step1
+# # https://arduinojson.org/v6/assistant/#/step1
 # time:  
 #   - platform: sntp
 #     on_time:
 #       - seconds: 0
-#         minutes: /5
+#         minutes: /50
 #         then:
 #           - script.execute: getTemperaturesData
 
@@ -509,7 +506,7 @@ script:
           level: info
           format: "HTTP Request get Data"
       - http_request.get:
-          url: "https://cdn.tmep.cz/app/export/okresy-cr-teplota.json"
+          url: "http://cdn.tmep.cz/app/export/okresy-cr-teplota.json"
           verify_ssl: false
           on_response:
             - if:
@@ -536,10 +533,10 @@ script:
       - http_request.get:
           # url: "https://192.168.199.99:1880/endpoint/volby?buff=true&typ=prezident&kolo=1&rok=2013"   #rok 2013,2018,2023...  URL params - look at Node-RED flow
           url: !lambda |-
-            return ((std::string) "https://192.168.199.99:1880/endpoint/volby?buff=true&typ=prezident&kolo=" + String(int(id(volbykolo).state)).c_str() + "&rok=" + id(volbyrok).state).c_str();
+            return ((std::string) "http://192.168.199.99:1880/endpoint/volby?buff=true&typ=prezident&kolo=" + String(int(id(volbykolo).state)).c_str() + "&rok=" + id(volbyrok).state).c_str();
           headers:
-            # Content-Type: application/json
-            User-Agent: MapaTvojiMamyESPHome/0.9
+            Content-Type: application/json
+        # User-Agent: MapaTvojiMamyESPHome/0.9
           verify_ssl: false
           on_response:
             - if:
@@ -554,14 +551,14 @@ script:
                       args:
                         - status_code
                         - duration_ms  
-                else:
-                  - logger.log:
-                      level: warn
-                      tag: "getVoteData"
-                      format: "Response status: %d, Duration: %u ms"
-                      args:
-                        - status_code
-                        - duration_ms  
+                # else:
+                #   - logger.log:
+                #       level: warn
+                #       tag: "getVoteData"
+                #       format: "Response status: %d, Duration: %u ms"
+                #       args:
+                #         - status_code
+                #         - duration_ms  
                   - lambda: |- 
                       //String tempData;
                       id(voteData) = id(http_request_data).get_string();
