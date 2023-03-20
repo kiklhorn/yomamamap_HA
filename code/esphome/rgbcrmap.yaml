@@ -4,6 +4,11 @@
   # do something with default js/css for the web interface
   # year volby based on now()
   # bind select effect with other buttons
+  # Dynamic temperature mapping. 
+  # Idea:
+  # t under zero never be yellow
+  # t higher than 20 never be blue
+  # or something like this
 
 
 esphome:
@@ -34,6 +39,7 @@ esp32:
 
 # Enable logging
 logger:
+  level: INFO
 
 web_server:
   js_include: "./v2/www.js"
@@ -85,6 +91,10 @@ button:
     on_press: 
       then:
         - script.execute: getVoteData
+        - light.turn_on: 
+            id: neo
+            effect: "VOLBY Prezident"              
+
         
 switch:
   - platform: template
@@ -134,8 +144,12 @@ number:
                   value: 'false'
             else: 
               - script.execute: getVoteData #bufferovane = pockat a znovu
+              - light.turn_on: 
+                  id: neo
+                  effect: "VOLBY Prezident"
               - delay: 8s
-              - script.execute: getVoteData
+              # - script.execute: getVoteData
+
   # - platform: template
   #   id: efektinterval #ToDo - pouzit v lambda millis
   #   name: "Efekt interval [ms]:"
@@ -192,8 +206,11 @@ select:
                   format: "Chosen option: %s (index %d)"
                   args: ["x.c_str()", "i"]
               - script.execute: getVoteData #bufferovane = pockat a znovu
+              - light.turn_on: 
+                  id: neo
+                  effect: "VOLBY Prezident"              
               - delay: 8s
-              - script.execute: getVoteData
+              # - script.execute: getVoteData
 
 light:
   - platform: neopixelbus
@@ -235,99 +252,9 @@ light:
               num_leds: 1
           add_led_interval: 100ms
           reverse: false
-      - addressable_lambda:
-          name: "Teploty TMEP [-15..+40°C]" #@tvoje___mama
-          update_interval: 1s
-          lambda: |-
-            if (initial_run) {
-              it.all() = Color::BLACK;
-              id(getTemperaturesData).execute();
-            }
-            static int last_update;
-            static int zobrazlog = false;
-            int update_time = int(id(datainterval).state); //how quickly to update in seconds
-            if((last_update + (update_time * 1000)) < millis()){
-              last_update = millis();
-              id(getTemperaturesData).execute();
-              zobrazlog = true; 
-            }          
-            DynamicJsonDocument doc(6144);
-            Serial.println(id(tempData));
-            DeserializationError error = deserializeJson(doc, id(tempData));
-            if (error) {
-              Serial.print("deserializeJson() failed: ");
-              Serial.println(error.c_str());
-              return;
-            }
-            for (JsonObject item : doc.as<JsonArray>()) {
-              int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
-              ledIndex -= 1;
-              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
-              int color = map(h, -15, 40, 170, 0);
-              it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
-              // nasledujici radek odkomentuj pro debug
-              //serialPrintf("okres: %d, teplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",ledIndex,h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
-              if (zobrazlog) {
-              //  ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
-              }
-            }
-            zobrazlog = false;
-            //id(neo).turn_on().set_brightness(0.99).perform();
-      - addressable_lambda:
-          name: "Teploty TMEP [min..max]" # @jirka1213
-          update_interval: 1s
-          lambda: |-
-            if (initial_run) {
-              it.all() = Color::BLACK;
-              id(getTemperaturesData).execute();
-              return;
-            }
-            static int last_update;
-            static int zobrazlog = false;
-            int update_time = int(id(datainterval).state); //how quickly to update in seconds
-            if((last_update + (update_time * 1000)) < millis()){
-              last_update = millis();
-              id(getTemperaturesData).execute(); 
-              zobrazlog = true; 
-            }          
-            double maxTemp = -99;
-            double minTemp =  99;
-            int minIndex, maxIndex;
-            DynamicJsonDocument doc(4096);
-            //DynamicJsonDocument doc(6144);
-            Serial.println(id(tempData));
-            DeserializationError error = deserializeJson(doc, id(tempData));
-            if (error) {
-              Serial.print("deserializeJson() failed: ");
-              Serial.println(error.c_str());
-              return;
-            }
-            //Zjisti min a max teplotu pro mapping
-            for (JsonObject item : doc.as<JsonArray>()) {
-              int ledIndex = item["id"];
-              ledIndex -= 1;
-              float h = item["h"];
-              if (h < minTemp) {minTemp = h; minIndex = ledIndex; }
-              if (h > maxTemp) {maxTemp = h; maxIndex = ledIndex; }
-            }
 
-            for (JsonObject item : doc.as<JsonArray>()) {
-              int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
-              ledIndex -= 1;
-              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
-              int color = map(h, minTemp, maxTemp, 170, 0);
-              it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
-              //serialPrintf("okres: %d, teplota: %f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",ledIndex,h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
-              if (zobrazlog) {
-               // ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
-              }
-              if (zobrazlog && ledIndex >= 76) {
-                ESP_LOGI("teploty","min: %.2f°C okres: %s, max: %.2f°C okres: %s", minTemp, ledNames[minIndex].c_str(), maxTemp, ledNames[maxIndex].c_str());
-              }
-            }
-            zobrazlog = false;
 
-            //id(neo).turn_on().set_brightness(0.99).perform();
+            # //id(neo).turn_on().set_brightness(0.99).perform();
       # - addressable_lambda:
       #     name: "test kraju 1"
       #     update_interval: 10000ms
@@ -368,7 +295,7 @@ light:
               nn += (255/15);
               //nn += (255/7);
               if (nn >= 255) { nn -= 255; }
-              //ESP_LOGD("custom", "e: %d -> %d", i, n[i]);
+              ESP_LOGD("custom", "e: %d -> %d", i, n[i]);
             }  
 
             it.range(0,3) = Wheel(n[0]); //Karlovarsky
@@ -421,7 +348,7 @@ light:
             }
             int color = map(h, mint, maxt, 170, 0); // -15 .. 40°C
             h += direction * range/float(it.size()); //
-            //ESP_LOGD("custom", "h: %.2f ", h);
+            ESP_LOGD("custom", "h: %.2f ", h);
             if (h>=maxt & direction){
               direction = -1;
             }
@@ -430,6 +357,97 @@ light:
             }
             it[0] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy;
 
+      - addressable_lambda:
+          name: "Teploty TMEP [-15..+40°C]" #@tvoje___mama
+          update_interval: 1s
+          lambda: |-
+            if (initial_run) {
+              it.all() = Color::BLACK;
+              id(getTemperaturesData).execute();
+            }
+            static int last_update;
+            static int zobrazlog = false;
+            int update_time = int(id(datainterval).state); //how quickly to update in seconds
+            if((last_update + (update_time * 1000)) < millis()){
+              last_update = millis();
+              id(getTemperaturesData).execute();
+              zobrazlog = true; 
+            }          
+            DynamicJsonDocument doc(6144);
+            Serial.println(id(tempData));
+            DeserializationError error = deserializeJson(doc, id(tempData));
+            if (error) {
+              Serial.print("deserializeJson() failed: ");
+              Serial.println(error.c_str());
+              return;
+            }
+            for (JsonObject item : doc.as<JsonArray>()) {
+              int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
+              ledIndex -= 1;
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              int color = map(h, -15, 40, 170, 0);
+              it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
+              // nasledujici radek odkomentuj pro debug
+              //serialPrintf("okres: %d, teplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",ledIndex,h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              if (zobrazlog) {
+                ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              }
+            }
+            zobrazlog = false;
+            //id(neo).turn_on().set_brightness(0.99).perform();
+      - addressable_lambda:
+          name: "Teploty TMEP [min..max]" # @jirka1213
+          update_interval: 1s
+          lambda: |-
+            if (initial_run) {
+              it.all() = Color::BLACK;
+              id(getTemperaturesData).execute();
+              return;
+            }
+            static int last_update;
+            static int zobrazlog = false;
+            int update_time = int(id(datainterval).state); //how quickly to update in seconds
+            if((last_update + (update_time * 1000)) < millis()){
+              last_update = millis();
+              id(getTemperaturesData).execute(); 
+              zobrazlog = true; 
+            }          
+            double maxTemp = -99;
+            double minTemp =  99;
+            int minIndex, maxIndex;
+            DynamicJsonDocument doc(4096);
+            //DynamicJsonDocument doc(6144);
+            Serial.println(id(tempData));
+            DeserializationError error = deserializeJson(doc, id(tempData));
+            if (error) {
+              Serial.print("deserializeJson() failed: ");
+              Serial.println(error.c_str());
+              return;
+            }
+            //Zjisti min a max teplotu pro mapping
+            for (JsonObject item : doc.as<JsonArray>()) {
+              int ledIndex = item["id"];
+              ledIndex -= 1;
+              float h = item["h"];
+              if (h < minTemp) {minTemp = h; minIndex = ledIndex; }
+              if (h > maxTemp) {maxTemp = h; maxIndex = ledIndex; }
+            }
+
+            for (JsonObject item : doc.as<JsonArray>()) {
+              int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
+              ledIndex -= 1;
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              int color = map(h, minTemp, maxTemp, 170, 0);
+              it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
+              //serialPrintf("okres: %d, teplota: %f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",ledIndex,h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              if (zobrazlog) {
+                ESP_LOGI("teploty","okres: %s, \t\tteplota: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              }
+              if (zobrazlog && ledIndex >= 76) {
+                ESP_LOGI("teploty","min: %.2f°C okres: %s, max: %.2f°C okres: %s", minTemp, ledNames[minIndex].c_str(), maxTemp, ledNames[maxIndex].c_str());
+              }
+            }
+            zobrazlog = false;
       - addressable_lambda:
           name: "VOLBY Prezident"
           update_interval: 2s
@@ -441,10 +459,12 @@ light:
               // return;
             }
             static int last_update;
+            static int zobrazlog = false;
             int update_time = int(id(datainterval).state); //how quickly to update in seconds
             if((last_update + (update_time * 1000)) < millis()){
               last_update = millis();
               id(getVoteData).execute(); // (read previous data and prepare data for the next read(buffered mode))
+              zobrazlog = true;
             }
             double maxTemp = -99;
             double minTemp =  99;
@@ -476,8 +496,11 @@ light:
               it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
               //it[ledIndex] = WheelAda(color); //Adafruit values - podivej se do wheel.h, jsou tam odkazy
               // nasledujici radek odkomentovat pro debug
-              serialPrintf("okres: %s, \t\tkandidat: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              if (zobrazlog) {
+                ESP_LOGI("volby","okres: %s, \t\tkandidat: %.2f, barva rgb: (Wheel/WheelAda) %d/%d %d/%d %d/%d\n",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              }
             }
+            zobrazlog = false; //Zobrazi se pouze v prvnim cyklu vzdy po aktualizaci dat po skonceni cyklu vypne
 
 
 json:
