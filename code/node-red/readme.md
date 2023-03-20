@@ -1,8 +1,18 @@
-Initial dirty testing version without URL composition
+
 
 Import file into Node-RED
 
-formát "TMEP teploty" - http://homeassistant:1880/endpoint/volby
+returned format: "TMEP compatible teploty JSON object" - http://homeassistant:1880/endpoint/volby
+{
+id: cislo LED (1..77),
+h: hodnota (cislo kandidata nebo strany),
+pct: procento sectenych hlasu (0..100)
+}
+
+call examples: 
+
+http://homeassistant:1880/endpoint/volby?buff=true&typ=prezident&kolo=1&rok=2023 (buffered, prezidentske volby 2023, 1.kolo)
+http://homeassistant:1880/endpoint/volby?buff=true&typ=pscr&rok=2021 (buffered, volby do PS, rok 2021) 
 
 volby-flows-memory-usage.json - corrected URLs and debug part added
 
