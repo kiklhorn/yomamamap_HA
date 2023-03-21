@@ -442,7 +442,7 @@ light:
               zobrazlog = true; 
             }          
             DynamicJsonDocument doc(6144);
-            Serial.println(id(tempData));
+            //Serial.println(id(tempData));
             DeserializationError error = deserializeJson(doc, id(tempData));
             if (error) {
               Serial.print("deserializeJson() failed: ");
@@ -536,7 +536,7 @@ light:
             int minIndex, maxIndex;
             DynamicJsonDocument doc(4096);
             //DynamicJsonDocument doc(6144);
-            Serial.println(id(tempData));
+            //Serial.println(id(tempData));
             DeserializationError error = deserializeJson(doc, id(tempData));
             if (error) {
               Serial.print("deserializeJson() failed: ");
