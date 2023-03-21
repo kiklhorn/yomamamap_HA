@@ -29,7 +29,7 @@ esphome:
     then:
       - delay: 5s
       - script.execute: getTemperaturesData
-      - script.execute: getVoteData
+      # - script.execute: getVoteData
 
 
 esp32:
@@ -82,18 +82,26 @@ button:
     name: "Restart (Safe Mode) rgbcrmap"
     internal: True
   - platform: template
-    name: Aktualizace teplot (ruční)
+    name: Teploty ruční aktualizace
     on_press: 
       then:
         - script.execute: getTemperaturesData
   - platform: template
-    name: Aktualizace voleb (ruční)
+    name: Volby prezident aktualizace (ruční)
     on_press: 
       then:
         - script.execute: getVoteData
         - light.turn_on: 
             id: neo
             effect: "VOLBY Prezident"              
+  - platform: template
+    name: Volby poslanecká sněmovna aktualizace (ruční)
+    on_press: 
+      then:
+        - script.execute: getVotePSData
+        - light.turn_on: 
+            id: neo
+            effect: "VOLBY PS ČR"              
 
         
 switch:
@@ -120,11 +128,15 @@ globals:
     type: boolean
     initial_value: 'true'
     restore_value: False
+  - id: pscrinit
+    type: boolean
+    initial_value: 'true'
+    restore_value: False
 
 number:
   - platform: template
     id: volbykolo  
-    name: "Volby kolo:"
+    name: "Volby prezident kolo:"
     min_value: 1
     max_value: 2
     step: 1
@@ -149,6 +161,32 @@ number:
                   effect: "VOLBY Prezident"
               - delay: 8s
               # - script.execute: getVoteData
+  # - platform: template
+  #   id: volbypscrrok 
+  #   name: "Rok voleb PSČR:"
+  #   min_value: 2006
+  #   max_value: 2060
+  #   step: 1
+  #   mode: BOX
+  #   optimistic: true
+  #   disabled_by_default: False
+  #   restore_value: True
+  #   initial_value: 1
+  #   on_value:
+  #     then:
+  #       - if: 
+  #           condition:
+  #               lambda: 'return id(pscrinit);'
+  #           then:
+  #             - globals.set: 
+  #                 id: pscrinit
+  #                 value: 'false'
+  #           else: 
+  #             - script.execute: getVoteData #bufferovane = pockat a znovu
+  #             - light.turn_on: 
+  #                 id: neo
+  #                 effect: "VOLBY PS ČR"
+  #             - delay: 8s
 
   # - platform: template
   #   id: efektinterval #ToDo - pouzit v lambda millis
@@ -168,7 +206,7 @@ number:
 
   - platform: template
     id: datainterval #ToDo - pouzit v lambda millis
-    name: "Aktualizace dat [s]:"
+    name: "Aktualizace dat (automatická)[s]:"
     min_value: 30
     max_value: 604800
       # 60*60*24*7
@@ -181,7 +219,7 @@ number:
 
 select:
   - platform: template
-    name: "Volby rok:"
+    name: "Volby prezident rok:"
     id: volbyrok
     options:
       - "2033"
@@ -210,8 +248,40 @@ select:
                   id: neo
                   effect: "VOLBY Prezident"              
               - delay: 8s
-              # - script.execute: getVoteData
-
+              - script.execute: getVoteData
+  - platform: template
+    name: "Volby poslanecká sněmovna rok:"
+    id: volbypscrrok
+    options:
+      - "2006"
+      - "2010"
+      - "2013"
+      - "2017"
+      - "2021"
+      - "2025"
+      - "2029"
+    initial_option: "2021"
+    optimistic: True
+    restore_value: True
+    on_value:
+      then:
+        - if: 
+            condition:
+                lambda: 'return id(pscrinit);'
+            then:
+              - globals.set: 
+                  id: pscrinit
+                  value: 'false'
+            else: 
+              - logger.log:
+                  format: "Chosen option: %s (index %d)"
+                  args: ["x.c_str()", "i"]
+              - script.execute: getVotePSData #bufferovane = pockat a znovu
+              - light.turn_on: 
+                  id: neo
+                  effect: "VOLBY PS ČR"              
+              - delay: 8s
+              - script.execute: getVotePSData
 light:
   - platform: neopixelbus
     # restore_mode: ALWAYS_OFF
@@ -500,7 +570,7 @@ light:
             zobrazlog = false;
       - addressable_lambda:
           name: "VOLBY Prezident"
-          update_interval: 2s
+          update_interval: 1s
           lambda: |-
             if (initial_run) {
               it.all() = Color::BLACK;
@@ -546,6 +616,57 @@ light:
               it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
               if (zobrazlog) {
                 ESP_LOGI("volby","okres: %-20s \t\tkandidat: %.2f, barva rgb:%3d/%3d %3d/%3d %3d/%3d  (Wheel/WheelAda) ",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
+              }
+            }
+            zobrazlog = false; //Zobrazi se pouze v prvnim cyklu vzdy po aktualizaci dat po skonceni cyklu vypne
+      - addressable_lambda:
+          name: "VOLBY PS ČR"
+          update_interval: 1s
+          lambda: |-
+            if (initial_run) {
+              it.all() = Color::BLACK;
+              id(getVotePSData).execute(); //try prepare data on Node-RED (buffered mode, see comments on node-RED flow)
+              // optionally do a return so nothing happens until the next update_interval
+              // return;
+            }
+            static int last_update;
+            static int zobrazlog = false;
+            int update_time = int(id(datainterval).state); //how quickly to update in seconds
+            if((last_update + (update_time * 1000)) < millis()){
+              last_update = millis();
+              id(getVotePSData).execute(); // (read previous data and prepare data for the next read(buffered mode))
+              zobrazlog = true;
+            }
+            double maxTemp = -99;
+            double minTemp =  99;
+            DynamicJsonDocument doc(6144); // size calculator: https://arduinojson.org/v6/assistant/
+            // nasledujici radek odkomentovat pro debug
+            // Serial.println(id(voteData));
+            DeserializationError error = deserializeJson(doc, id(voteData));
+            if (error) {
+              Serial.print("deserializeJson() failed: ");
+              Serial.println(error.c_str());
+              return;
+            }
+            //Zjisti min a max teplotu pro mapping
+            for (JsonObject item : doc.as<JsonArray>()) {
+              float h = item["h"];
+              if (h < minTemp) minTemp = h;
+              if (h > maxTemp) maxTemp = h;
+            }
+
+            for (JsonObject item : doc.as<JsonArray>()) {
+              int ledIndex = item["id"]; // 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, ...
+              ledIndex -= 1;
+              float h = item["h"]; // -0.6, -4.3, -2.2, -1.5, -0.5, -0.5, 0.9, -0.4, -2.5, -0.5, -2.2, -3.4, -3.9, ...
+              int color = map(h, minTemp, maxTemp, 0, 170);
+              if (h == -99) {  //nejsou k dispozici realna data, nastavim flag pro znovunacteni po skonceni cyklu, nebo zatim proste zobrazim mapu fialovou
+           
+                color = 218;
+              }
+              it[ledIndex] = id(altcolors).state ? Wheel(color) : WheelAda(color) ; //Adafruit values - podivej se do wheel.h, jsou tam odkazy
+              if (zobrazlog) {
+                ESP_LOGI("PSCR","okres: %-20s \t\tkandidat: %.2f, barva rgb:%3d/%3d %3d/%3d %3d/%3d  (Wheel/WheelAda) ",(ledNames[ledIndex]).c_str(),h,Wheel(color)[0],WheelAda(color)[0],Wheel(color)[1],WheelAda(color)[1],Wheel(color)[2],WheelAda(color)[2]);
               }
             }
             zobrazlog = false; //Zobrazi se pouze v prvnim cyklu vzdy po aktualizaci dat po skonceni cyklu vypne
@@ -618,6 +739,44 @@ script:
                   - logger.log:
                       level: info
                       tag: "getVoteData"
+                      format: "Response status: %d, Duration: %u ms"
+                      args:
+                        - status_code
+                        - duration_ms  
+                # else:
+                #   - logger.log:
+                #       level: warn
+                #       tag: "getVoteData"
+                #       format: "Response status: %d, Duration: %u ms"
+                #       args:
+                #         - status_code
+                #         - duration_ms  
+                  - lambda: |- 
+                      //String tempData;
+                      id(voteData) = id(http_request_data).get_string();
+  - id: getVotePSData
+    mode: queued
+    then:
+      - logger.log:
+          level: info
+          format: "HTTP Request get Data"
+      - http_request.get:
+          # url: "https://192.168.199.99:1880/endpoint/volby?buff=true&typ=prezident&kolo=1&rok=2013"   #rok 2013,2018,2023...  URL params - look at Node-RED flow
+          url: !lambda |-
+            return ((std::string) "http://192.168.199.99:1880/endpoint/volby?buff=true&typ=pscr&rok=" + id(volbypscrrok).state).c_str();
+          headers:
+            Content-Type: application/json
+        # User-Agent: MapaTvojiMamyESPHome/0.9
+          verify_ssl: false
+          on_response:
+            - if:
+                condition:
+                  lambda: |-
+                    return status_code == 200;  
+                then:
+                  - logger.log:
+                      level: info
+                      tag: "getVotePSData"
                       format: "Response status: %d, Duration: %u ms"
                       args:
                         - status_code
